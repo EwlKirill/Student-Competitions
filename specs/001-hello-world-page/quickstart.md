@@ -137,13 +137,30 @@ shows a styled "not found" page with a link home — no stack trace, no raw JSON
 The milestone's stated criterion is *"the application starts, the page opens, there is a first
 pytest test for the endpoint."* It is met when:
 
-- [ ] V1 passes — the home page renders server-side with name and description.
-- [ ] V4 passes — unknown paths return a friendly 404.
-- [ ] V5 passes — a clean checkout reaches the page using only documented commands.
-- [ ] V7 passes, including the deliberate-breakage step.
-- [ ] `uv run ruff check .` and `uv run ruff format --check .` are clean.
-- [ ] `uv.lock` is committed alongside `pyproject.toml`.
-- [ ] The README documents setup, run and test commands.
+- [x] V1 passes — the home page renders server-side with name and description.
+- [x] V4 passes — unknown paths return a friendly 404.
+- [x] V5 passes — a clean checkout reaches the page using only documented commands.
+- [x] V7 passes, including the deliberate-breakage step.
+- [x] `uv run ruff check .` and `uv run ruff format --check .` are clean.
+- [ ] `uv.lock` is committed alongside `pyproject.toml`. — **generated, not yet committed**
+- [x] The README documents setup, run and test commands.
+
+**Verification notes (2026-09-21)**
+
+`V1` and `V4` were verified over HTTP (status, `Content-Type`, complete server-rendered markup,
+stylesheet link order, and a scan confirming the error page leaks no stack trace, framework debug
+output or internal path). The remaining browser-only confirmations are still open:
+
+- **V2** (text reflow at ~375 px, no horizontal scrollbar) — not yet run. The viewport meta is
+  present and asserted by the suite, and neither `app.css` nor the templates set a fixed width,
+  but the rendered result has not been observed.
+- **V3** — the unstyled page was verified from the markup: with all CSS stripped it reads as
+  heading → tagline → description, carried by `<header>`/`<main>`/`<h1>`/`<p>`. Blocking
+  `/static/css/*` in devtools has not been done.
+- **V8** — verified without physically disconnecting: `app/` references no external URL, imports
+  no network or database client and reads no environment variable, and both `uv run --offline
+  pytest` and `uv run --offline uvicorn` succeed with the stylesheet served locally.
+- **SC-006** (a first-time reader can state what the application is for) — needs a human reader.
 
 ## Reference
 

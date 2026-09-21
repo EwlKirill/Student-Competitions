@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% if app_description %}<meta name="description" content="{{ app_description }}">{% endif %}
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/pico.min.css">
+    <link rel="stylesheet" href="/static/css/app.css">
+  </head>
+  <body>
+    <header class="container">
+      <strong>{{ app_name }}</strong>
+    </header>
+    <main class="container">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

@@ -87,5 +87,31 @@ milestone — there is no JSON API to content-negotiate against yet.
 
 ## Contract verification
 
-Each row above is exercised by `tests/integration/test_home.py`; see
-[quickstart.md](../quickstart.md) for the commands and expected results.
+The contract is verified at two levels. Not every row above is asserted in code — this table says
+which are, so the distinction is not mistaken for coverage that exists.
+
+**Asserted by `tests/integration/test_home.py`:**
+
+| Contract row | Assertion |
+|---|---|
+| `GET /` status | `200` |
+| `GET /` `Content-Type` | `text/html; charset=utf-8` |
+| `<title>` non-empty | a non-empty `<title>` is present |
+| Body carries the app name | body contains `APP_NAME`, imported from `app.core.config` (and `APP_NAME` is truthy, so the containment check cannot pass vacuously) |
+| Viewport meta | `<meta name="viewport" content="width=device-width, initial-scale=1">` is in the `<head>` |
+| Unmatched path | `GET /about` returns `404` and renders HTML |
+
+**Verified manually via [quickstart.md](../quickstart.md), not by the suite:**
+
+| Contract row | Where |
+|---|---|
+| `<title>` *contains* `APP_NAME` (the test checks only that it is non-empty) | V1 — the browser tab |
+| `<h1>` contains `APP_NAME`, body copy contains `APP_DESCRIPTION` | V1 |
+| Server-side rendering — complete HTML, not a JS shell | V1 step 3 (`curl` piped to `head -40`) |
+| Stylesheet `<link>` order: `pico.min.css` then `app.css` | V1 (page source) |
+| Degradation when a stylesheet fails to load | V3 |
+| `GET /static/css/pico.min.css` → `200 text/css`; no directory listing | Phase 2 checkpoint (`curl -I`) |
+| Error page forbidden content (no stack trace, debug output or internal path) | V4, in the browser |
+
+Any row in the second table that later becomes cheap to assert — most of them are one line against
+the response text — should move up rather than stay manual.

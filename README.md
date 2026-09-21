@@ -2,7 +2,48 @@
 
 A web application for running online knowledge competitions among students. Teachers manage students, a question bank and competitions; students answer questions in writing; answers are scored by an LLM.
 
-> **Status:** project skeleton. Implementation is driven by [GitHub Spec Kit](https://github.com/github/spec-kit) — no features are implemented yet.
+> **Status:** milestone 1 complete — the application runs locally and serves a server-rendered home page covered by a pytest test. Implementation is driven by [GitHub Spec Kit](https://github.com/github/spec-kit).
+
+## Getting started
+
+### Prerequisites
+
+[`uv`](https://docs.astral.sh/uv/) — and nothing else. **No system Python is required:** `uv` reads `.python-version` and provisions Python 3.13 itself. There is no database to set up, no `.env` file and no API keys.
+
+### Setup
+
+```bash
+git clone <repository-url>
+cd Student-Competitions
+uv sync
+```
+
+### Run
+
+```bash
+uv run uvicorn app.main:app --reload
+```
+
+The startup output ends with the address it is serving on:
+
+```text
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+```
+
+Open <http://127.0.0.1:8000>. If port 8000 is already taken, pass `--port 8001`.
+
+### Test
+
+```bash
+uv run pytest
+```
+
+### Lint & format
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+```
 
 ## Requirements
 
@@ -33,16 +74,27 @@ A web application for running online knowledge competitions among students. Teac
 │   └── pull_request_template.md
 ├── docs/requirements/       # Source product & technical requirements
 ├── specs/                   # Feature specs created by /speckit-specify (NNN-feature-name/)
+├── pyproject.toml           # Project metadata, dependencies, ruff & pytest config
+├── uv.lock                  # Committed lockfile
+├── .python-version          # 3.13
 ├── app/                     # FastAPI application
+│   ├── main.py              # App construction: static mount, routers, error handler
 │   ├── core/                # Settings, security, sessions, DB engine
-│   ├── models/              # SQLModel tables
+│   │   ├── config.py        # APP_NAME, APP_TAGLINE, APP_DESCRIPTION
+│   │   └── templates.py     # Shared Jinja2Templates instance
+│   ├── models/              # SQLModel tables (milestone 3)
 │   ├── schemas/             # Request/response & LLM structured-output schemas
 │   ├── routers/             # Route handlers grouped by area/role
+│   │   └── pages.py         # GET / → home page
 │   ├── services/            # Business logic (competitions, scoring, email, LLM)
 │   ├── templates/           # Jinja2: layouts/, partials/ (HTMX fragments), pages/
-│   └── static/              # css/, js/, img/
-├── migrations/              # Alembic migrations
+│   │   ├── layouts/base.html
+│   │   └── pages/           # home.html, error.html
+│   └── static/              # css/ (vendored pico.min.css + app.css), js/, img/
+├── migrations/              # Alembic migrations (milestone 3)
 ├── tests/                   # unit/, integration/, e2e/ (Playwright)
+│   ├── conftest.py          # `client` fixture over the FastAPI test client
+│   └── integration/test_home.py
 └── scripts/                 # Developer & ops helper scripts
 ```
 

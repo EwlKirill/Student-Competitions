@@ -56,7 +56,7 @@ Expected footprint under ~150 lines of application code.
 |---|---|---|---|
 | I | Walking Skeleton & Vertical Slices | **PASS** | This is milestone 1 of the ladder in `docs/requirements/technical-requirements.md`, delivered as feature `specs/001-hello-world-page/` on branch `001-hello-world-page`. It is a full vertical slice (request → route → template → styled HTML → test), not a horizontal layer. Nothing from milestones 2+ (Docker, CI, DB, auth) is built here. |
 | II | Server-Rendered Simplicity | **PASS** | The page is rendered on the server by Jinja2 and returned as complete HTML; no client-side rendering, no custom JavaScript, no build step. Styling is Pico.css plus a small override file in `app/static/css/`. HTMX is listed as "milestone 1+ (as needed)" and is **not** needed: the page is static content with no partial updates, so adding it now would violate YAGNI. It enters with the first interactive feature. |
-| III | Test-Backed Delivery | **PASS** | The milestone's `_Test:_` criterion ("there is a first pytest test for the endpoint") is automated in `tests/integration/test_home.py`, covering the spec's acceptance scenarios: root returns `200`, response is HTML containing the application name, the page has a `<title>`, and an unknown path returns `404`. SC-005 (breaking the page fails the suite) is verified once by hand before the milestone is accepted; the quickstart documents how. CI enforcement starts in milestone 2 per the stack table, so lint/tests are run locally here. |
+| III | Test-Backed Delivery | **PASS with recorded deviation** | The milestone's `_Test:_` criterion ("there is a first pytest test for the endpoint") is automated in `tests/integration/test_home.py`: root returns `200`, response is HTML containing the application name, the page has a `<title>`, the `<head>` carries the viewport meta, and an unknown path returns `404`. That covers US1 scenarios 1–2 and the machine-checkable half of scenario 3, plus US3 scenario 2. The remaining acceptance scenarios — visual reflow at phone width, clean-checkout setup, startup address reporting, the deliberate-breakage check — are verified manually per quickstart.md; see **Complexity Tracking** below for why and for the deviation record Principle III's "the spec's acceptance scenarios" wording requires. CI enforcement starts in milestone 2 per the stack table, so lint/tests are run locally here (see the same table). |
 | IV | Role-Based Access & Data Scoping | **N/A (justified)** | No roles, users, sessions or personal data exist at this milestone (auth is milestone 4, roles milestone 5). The home page is deliberately public — it is an anonymous marketing/landing page, which is the intended access level, not a missing check. The deny-by-default rule binds from the moment authentication exists; the reusable role dependencies are introduced in milestone 5 and every route added from then on carries an explicit requirement. |
 | V | Secure Authentication & Secrets | **N/A / PASS** | No authentication, sessions, cookies or secrets are introduced. Nothing in the diff reads or stores credentials, and no `.env` file is created or required — the app starts with zero configuration (FR-010). |
 | VI | Trustworthy LLM Evaluation | **N/A** | No LLM usage (milestone 10). |
@@ -112,7 +112,8 @@ app/
 ├── main.py                         # FastAPI app: static mount, router include, 404 handler
 ├── core/
 │   ├── __init__.py
-│   └── config.py                   # APP_NAME, APP_DESCRIPTION, APP_TAGLINE constants
+│   ├── config.py                   # APP_NAME, APP_DESCRIPTION, APP_TAGLINE constants
+│   └── templates.py                # shared Jinja2Templates instance (imported by routers + main)
 ├── routers/
 │   ├── __init__.py
 │   └── pages.py                    # GET / → renders pages/home.html
@@ -148,6 +149,18 @@ directories that have no content yet keep their `.gitkeep` files so the shape st
 `app/main.py` holds app construction (static mount, router registration, error handler) and
 `app/routers/pages.py` holds the thin handler, keeping the router free of application wiring.
 
+The one shared object both of them need — the `Jinja2Templates` instance — lives in
+`app/core/templates.py` rather than in `app/main.py`. `main.py` imports the router, so a router
+importing `templates` back from `app.main` would close an import cycle and fail at startup;
+`core/` is where the constitution's *Application Layout* already puts shared wiring, and every
+later milestone's router inherits the same single instance without reaching into `main`.
+
 ## Complexity Tracking
 
-No constitution violations. This section is intentionally empty.
+No added complexity and no stack deviation. Two process deviations from the constitution are
+recorded here, as Governance requires — each with the simpler alternative and why it was rejected.
+
+| Deviation | Why it is needed | Simpler alternative rejected because |
+|---|---|---|
+| **Principle III**: four acceptance scenarios are verified manually (quickstart V2, V3, V5, V6, V7 step 3 → tasks T024, T025, T030, T032, T033), not by pytest. Automated coverage is US1 scenarios 1–2 and the viewport half of scenario 3, plus US3 scenarios 1–2. | The manual four are about the *browser rendering* (text reflow at 375 px, readability with CSS blocked) and the *developer's environment* (clone-to-page on a clean checkout, a second process failing on a bound port). Asserting them needs a real browser — Playwright — which the stack table places in milestone 12, and a subprocess-level test of `uv sync` + `uvicorn`, which is milestone 2's CI job. | Adding Playwright now would introduce a milestone-12 stack component eight milestones early, in direct conflict with Principle I and the stack table's "a component MUST be introduced in the milestone listed above, or later". A test asserting the README's contents (for US2 scenario 3) fits none of the constitution's three tiers — it is neither pure logic, an HTTP route, nor e2e — and would assert the shape of prose rather than behaviour. The deliberate-breakage check (SC-005) is inherently a once-before-acceptance procedure: a test that asserts the suite fails when the app is broken would have to break the app. |
+| **Development Workflow gate 3** ("CI is green: `ruff check`, `ruff format --check`, full pytest suite") cannot be satisfied by this milestone's pull request. | No CI exists yet: GitHub Actions is a milestone-2 component in the stack table, and `.github/` is not created by this feature. The gate binds from milestone 2 onward. | Standing up GitHub Actions now would pull milestone 2's work into milestone 1, which Principle I forbids ("work beyond the current milestone's scope MUST be deferred"). Instead T031 runs the three gate commands locally before the PR, on the same configuration milestone 2's workflow will invoke, so that pipeline starts life on an already-green tree. |

@@ -1,0 +1,11 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ app_name }} — {{ app_tagline }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>{{ app_name }}</h1>
+  <p class="tagline">{{ app_tagline }}</p>
+  <p>{{ app_description }}</p>
+</section>
+{% endblock %}

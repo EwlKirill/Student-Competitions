@@ -1,0 +1,16 @@
+/* Project overrides on top of Pico.css. Kept deliberately minimal — Pico's container,
+   type scale and spacing already satisfy the readable-layout requirement. */
+
+.hero {
+  padding-block: 2rem;
+}
+
+.hero > h1 {
+  margin-bottom: 0.25rem;
+}
+
+.hero > .tagline {
+  color: var(--pico-muted-color);
+  font-size: 1.125rem;
+  margin-bottom: 1.5rem;
+}

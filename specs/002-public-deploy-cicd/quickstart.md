@@ -237,7 +237,7 @@ is the project's error page with a link home, not a Render error page and not a 
 
 - [X] V1 — the page opens from an outside device over HTTPS (SC-001, SC-002)
 - [X] V2 — HTTP redirects, `/healthz` answers, unknown paths give the app's own 404
-- [ ] V3 — a restart restores service unattended (SC-011)
+- [X] V3 — a restart restores service unattended (SC-011)
 - [X] V4 — pull requests are checked automatically within 5 minutes (SC-006)
 - [X] V5 — the image builds and runs from a clean checkout in under 15 minutes (SC-010)
 - [X] V6 — a failing test blocks the merge (SC-004)

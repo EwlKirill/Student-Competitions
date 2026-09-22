@@ -1,0 +1,49 @@
+# The release: a merge to `main` re-runs the same checks, deploys that exact commit, and proves
+# the public address is serving it before reporting success.
+# Contract: specs/002-public-deploy-cicd/contracts/pipeline.md#deployyml--the-release
+#
+# `pull_request_target` appears nowhere in this repository and must not be introduced: it would
+# run with write permissions and access to the deploy hook secret on a fork's pull request.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  # A manual re-release, for rolling forward after a fixed platform incident.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A single group for the whole environment, not one per ref: two merges in quick succession
+  # must not race each other to the same service, and the newest commit wins (FR-024).
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
+
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    # Nothing is published unless the suite, the style rules and the container build all pass for
+    # this exact commit (FR-021).
+    needs: checks
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ vars.PUBLIC_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trigger the Render deploy
+        env:
+          # An environment secret, not a repository secret: unreachable from checks.yml, from
+          # ci.yml and from any fork pull request (FR-028).
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: ./scripts/render_deploy.sh "${{ github.sha }}"
+
+      - name: Verify the public address is serving this commit
+        run: ./scripts/wait_for_release.sh "${{ vars.PUBLIC_BASE_URL }}" "${{ github.sha }}"

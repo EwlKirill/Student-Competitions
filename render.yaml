@@ -1,0 +1,27 @@
+# Render Blueprint: the hosting side of the milestone, as code.
+# Contract: specs/002-public-deploy-cicd/contracts/render-service.md — rationale: research D1–D3.
+#
+# `region` is immutable after creation: changing it means a new service and a new public address.
+# No secret is declared here, and none may be added — the service needs none (FR-030).
+services:
+  - type: web
+    name: student-competitions
+    runtime: docker
+    plan: free
+    # The only branch Render will ever build. Combined with auto-deploy being off, a push to any
+    # other branch can publish nothing (FR-022).
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Traffic is switched to a new instance only once this returns 2xx, and 60s of consecutive
+    # failures restarts the instance (FR-006, FR-023).
+    healthCheckPath: /healthz
+    region: frankfurt
+    # Quoted deliberately: YAML 1.1 parses a bare `off` as the boolean false. The pipeline
+    # (.github/workflows/deploy.yml) is the only thing that deploys this service (FR-020, FR-021).
+    autoDeployTrigger: "off"
+    envVars:
+      # PORT is supplied by Render and RENDER_GIT_COMMIT is set automatically; HOST is stated
+      # explicitly so the bind address is visible rather than implied.
+      - key: HOST
+        value: 0.0.0.0

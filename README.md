@@ -4,7 +4,7 @@ A web application for running online knowledge competitions among students. Teac
 
 > **Status:** milestone 2 in progress — the application is packaged as a Docker image, every pull request is verified by GitHub Actions, and a merge to `main` publishes itself to Render. Implementation is driven by [GitHub Spec Kit](https://github.com/github/spec-kit).
 
-**Public address:** _not published yet._ The Render Blueprint bootstrap generates the hostname; record it here and in the `PUBLIC_BASE_URL` repository variable once it exists (see [`specs/002-public-deploy-cicd/quickstart.md`](specs/002-public-deploy-cicd/quickstart.md), step B1).
+**Public address:** <https://student-competitions.onrender.com> — served from Render, HTTPS only. `GET /healthz` there reports the commit currently live.
 
 ## Getting started
 
@@ -76,6 +76,8 @@ docker run --rm -e PORT=9000 -p 9000:9000 student-competitions
 
 Render uses it as the service's health check, and the deploy pipeline polls it to prove a release actually landed.
 
+Every page also carries the same release identity in its footer — `v<version>` and the short commit, with the full SHA on hover — so which release is serving is visible without leaving the page.
+
 ### Environment variables
 
 The complete configuration surface. Every one is optional — the application starts on the defaults below with nothing supplied.
@@ -110,7 +112,7 @@ If a release is bad, get the public address healthy first, then fix `main`:
    ```bash
    export RENDER_DEPLOY_HOOK_URL='<the service deploy hook URL>'
    ./scripts/render_deploy.sh <previous-good-sha>
-   ./scripts/wait_for_release.sh https://<public-host> <previous-good-sha>
+   ./scripts/wait_for_release.sh https://student-competitions.onrender.com <previous-good-sha>
    ```
 
 Then **revert the bad commit on `main`** and let the pipeline publish the revert, so the repository and the public address agree again. Until that happens, the next merge re-publishes the broken version.

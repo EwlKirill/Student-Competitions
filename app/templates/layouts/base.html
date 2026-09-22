@@ -15,5 +15,11 @@
     <main class="container">
       {% block content %}{% endblock %}
     </main>
+    <footer class="container release">
+      <small>
+        {{ app_name }} <span class="release-version">v{{ app_version }}</span>
+        · build <code title="{{ commit_sha }}">{{ commit_short }}</code>
+      </small>
+    </footer>
   </body>
 </html>

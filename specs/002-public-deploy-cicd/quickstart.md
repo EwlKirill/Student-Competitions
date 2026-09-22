@@ -235,7 +235,7 @@ is the project's error page with a link home, not a Render error page and not a 
 - [X] V7 — a style violation blocks the merge (SC-005)
 - [ ] V8 — a broken publish leaves the previous version serving (SC-008)
 - [X] V9 — a merge reaches the public address with zero manual steps (SC-007)
-- [ ] V10 — the diff and the logs contain no secret (SC-009)
+- [X] V10 — the diff and the logs contain no secret (SC-009)
 - [ ] V11 — the newest commit wins a race (FR-024)
 - [X] The README records the public address and every environment variable (FR-007, FR-012)
 - [X] `uv run pytest`, `uv run ruff check .` and `uv run ruff format --check .` are green locally

@@ -229,16 +229,16 @@ is the project's error page with a link home, not a Render error page and not a 
 - [ ] V1 — the page opens from an outside device over HTTPS (SC-001, SC-002)
 - [X] V2 — HTTP redirects, `/healthz` answers, unknown paths give the app's own 404
 - [ ] V3 — a restart restores service unattended (SC-011)
-- [ ] V4 — pull requests are checked automatically within 5 minutes (SC-006)
-- [ ] V5 — the image builds and runs from a clean checkout in under 15 minutes (SC-010)
-- [ ] V6 — a failing test blocks the merge (SC-004)
-- [ ] V7 — a style violation blocks the merge (SC-005)
+- [X] V4 — pull requests are checked automatically within 5 minutes (SC-006)
+- [X] V5 — the image builds and runs from a clean checkout in under 15 minutes (SC-010)
+- [X] V6 — a failing test blocks the merge (SC-004)
+- [X] V7 — a style violation blocks the merge (SC-005)
 - [ ] V8 — a broken publish leaves the previous version serving (SC-008)
-- [ ] V9 — a merge reaches the public address with zero manual steps (SC-007)
+- [X] V9 — a merge reaches the public address with zero manual steps (SC-007)
 - [ ] V10 — the diff and the logs contain no secret (SC-009)
 - [ ] V11 — the newest commit wins a race (FR-024)
-- [ ] The README records the public address and every environment variable (FR-007, FR-012)
-- [ ] `uv run pytest`, `uv run ruff check .` and `uv run ruff format --check .` are green locally
+- [X] The README records the public address and every environment variable (FR-007, FR-012)
+- [X] `uv run pytest`, `uv run ruff check .` and `uv run ruff format --check .` are green locally
 - [ ] SC-003 (99% of requests succeed over 24 h) — checked the day after the milestone lands, by
       a handful of spot requests plus Render's event log; there is no uptime monitor at this
       milestone and the spec puts one in milestone 12

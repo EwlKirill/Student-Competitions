@@ -222,6 +222,15 @@ is the project's error page with a link home, not a Render error page and not a 
    `/healthz` ends up reporting the **later** commit; no run reports success for a commit that is
    not the one serving.
 
+> **This scenario conflicts with B3's branch protection.** `strict` ("require branches to be up to
+> date before merging") means the second pull request goes out of date the moment the first merges,
+> so its merge button disables until someone clicks *Update branch* and waits for the checks to
+> re-run — two merges within a minute are impossible while it is on. Get both pull requests green
+> **first**, then uncheck that one setting, merge both, and re-check it immediately. Nothing else
+> in the rule is touched. Alternatively, merge the second within the first Deploy run's lifetime
+> (~1–10 minutes) rather than within a minute: overlapping the runs is what the concurrency group
+> actually reacts to.
+
 ---
 
 ## Milestone acceptance checklist
@@ -236,7 +245,7 @@ is the project's error page with a link home, not a Render error page and not a 
 - [ ] V8 — a broken publish leaves the previous version serving (SC-008)
 - [X] V9 — a merge reaches the public address with zero manual steps (SC-007)
 - [X] V10 — the diff and the logs contain no secret (SC-009)
-- [ ] V11 — the newest commit wins a race (FR-024)
+- [X] V11 — the newest commit wins a race (FR-024)
 - [X] The README records the public address and every environment variable (FR-007, FR-012)
 - [X] `uv run pytest`, `uv run ruff check .` and `uv run ruff format --check .` are green locally
 - [ ] SC-003 (99% of requests succeed over 24 h) — checked the day after the milestone lands, by

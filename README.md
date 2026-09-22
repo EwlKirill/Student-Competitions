@@ -66,6 +66,13 @@ The port is configuration, not code. To listen somewhere else, with no rebuild:
 docker run --rm -e PORT=9000 -p 9000:9000 student-competitions
 ```
 
+On macOS, if the build fails with `docker-credential-desktop: executable file not found in $PATH`,
+Docker Desktop's credential helper is not on your `PATH`. Add it:
+
+```bash
+export PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin"
+```
+
 ### Service status
 
 `GET /healthz` reports what is live, as JSON:

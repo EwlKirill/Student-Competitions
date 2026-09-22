@@ -193,6 +193,15 @@ is the project's error page with a link home, not a Render error page and not a 
    an error.
 4. Revert, and confirm the next release restores a green pipeline.
 
+> **Step 3 cannot happen by merging a broken build to `main`.** `deploy.yml` gates the deploy job
+> on `needs: checks`, so a Dockerfile that cannot build fails `checks / image`, the deploy job is
+> **skipped**, the hook is never called and Render never learns the commit exists — there is no
+> failed Render deploy to look at. That path tests the CI gate, which is a different half of
+> FR-023. To test Render's own failure handling, push the broken commit to a throwaway branch and
+> call the hook at that SHA directly (`RENDER_DEPLOY_HOOK_URL=… ./scripts/render_deploy.sh <sha>`):
+> Render accepts a `ref` that is not on `main`, builds it, and fails it, while the previous
+> instance keeps serving. Nothing broken ever reaches `main`, so step 4 has nothing to revert.
+
 ### V9 — A merge reaches the public address on its own (US3 scenarios 1, 2 and 5; FR-020, FR-021; SC-007)
 
 1. Make a trivial visible change (a word in the home page description), open a pull request, let
@@ -242,7 +251,7 @@ is the project's error page with a link home, not a Render error page and not a 
 - [X] V5 — the image builds and runs from a clean checkout in under 15 minutes (SC-010)
 - [X] V6 — a failing test blocks the merge (SC-004)
 - [X] V7 — a style violation blocks the merge (SC-005)
-- [ ] V8 — a broken publish leaves the previous version serving (SC-008)
+- [X] V8 — a broken publish leaves the previous version serving (SC-008)
 - [X] V9 — a merge reaches the public address with zero manual steps (SC-007)
 - [X] V10 — the diff and the logs contain no secret (SC-009)
 - [X] V11 — the newest commit wins a race (FR-024)

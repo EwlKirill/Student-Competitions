@@ -14,3 +14,15 @@
   font-size: 1.125rem;
   margin-bottom: 1.5rem;
 }
+
+/* Which release is serving this page, readable without opening /healthz (FR-025). */
+.release {
+  border-top: 1px solid var(--pico-muted-border-color);
+  color: var(--pico-muted-color);
+  margin-top: 2rem;
+  padding-block: 1rem;
+}
+
+.release code {
+  font-size: 0.875em;
+}

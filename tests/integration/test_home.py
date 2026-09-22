@@ -7,7 +7,8 @@ import re
 
 from fastapi.testclient import TestClient
 
-from app.core.config import APP_NAME
+from app.core.config import APP_NAME, APP_VERSION, COMMIT_SHA
+from app.core.templates import SHORT_COMMIT_LENGTH
 
 VIEWPORT_META = '<meta name="viewport" content="width=device-width, initial-scale=1">'
 
@@ -55,3 +56,30 @@ def test_unknown_path_returns_a_rendered_not_found_page(client: TestClient) -> N
     assert response.status_code == 404
     assert response.headers["content-type"] == "text/html; charset=utf-8"
     assert "<html" in response.text
+
+
+def _footer(body: str) -> str:
+    match = re.search(r"<footer.*?</footer>", body, re.DOTALL)
+    assert match is not None, "the page has no <footer>"
+    return match.group(0)
+
+
+def test_home_footer_reports_the_release(client: TestClient) -> None:
+    """The version and the commit are on the page itself, so which release is serving is visible
+    without calling /healthz (FR-025)."""
+    footer = _footer(client.get("/").text)
+    assert f"v{APP_VERSION}" in footer
+    assert COMMIT_SHA[:SHORT_COMMIT_LENGTH] in footer
+
+
+def test_home_footer_carries_the_full_commit(client: TestClient) -> None:
+    """The short form is what is read; the full value stays available on hover."""
+    assert f'title="{COMMIT_SHA}"' in _footer(client.get("/").text)
+
+
+def test_error_page_reports_the_release_too(client: TestClient) -> None:
+    """The footer lives in the shared layout, so every page inherits it — including this one,
+    which is rendered by an exception handler rather than by a router."""
+    footer = _footer(client.get("/about").text)
+    assert f"v{APP_VERSION}" in footer
+    assert COMMIT_SHA[:SHORT_COMMIT_LENGTH] in footer

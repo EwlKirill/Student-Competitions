@@ -1,6 +1,6 @@
 # Student Competitions
 
-A web application for running online knowledge competitions among students. Teachers manage students, a question bank and competitions; students answer questions in writing; answers are scored by an LLM.
+A web application for running online knowledge competitions among students. Teachers manage students, a question bank and competitions; students answer questions in writing; answers are scored by an LLM..
 
 > **Status:** milestone 2 in progress — the application is packaged as a Docker image, every pull request is verified by GitHub Actions, and a merge to `main` publishes itself to Render. Implementation is driven by [GitHub Spec Kit](https://github.com/github/spec-kit).
 

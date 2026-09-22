@@ -5,6 +5,8 @@ pipeline's post-release verification (`scripts/wait_for_release.sh`), and a huma
 live right now. See specs/002-public-deploy-cicd/contracts/http-routes.md.
 """
 
+import os
+
 from fastapi import APIRouter
 
 from app.core.config import APP_VERSION, COMMIT_SHA

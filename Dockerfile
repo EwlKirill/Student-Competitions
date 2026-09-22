@@ -45,8 +45,10 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY app ./app
 
-# Non-root, with no login shell and no home directory to write to.
-RUN useradd --system --no-create-home --shell /usr/sbin/nologin --uid 10001 appuser
+# Non-root, with no login shell and no home directory to write to. The uid is well above the
+# range Debian reserves for system accounts, so it cannot collide with one the base image adds
+# later; `--system` is deliberately absent, since it warns about exactly that uid range.
+RUN useradd --no-create-home --shell /usr/sbin/nologin --uid 10001 appuser
 USER appuser
 
 # Documentation only — the real port comes from $PORT.

@@ -1,0 +1,121 @@
+# The verification jobs, defined once and called by both entry points (ci.yml for pull requests,
+# deploy.yml for releases) so the merge gate and the release gate cannot drift apart.
+# Contract: specs/002-public-deploy-cicd/contracts/pipeline.md — rationale: research D9.
+#
+# This workflow references no secret and declares no environment. That is what makes it safe to
+# run against a fork's pull request: there is nothing here for untrusted code to reach (FR-028).
+name: Checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Test
+        run: uv run pytest
+
+  image:
+    name: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build --build-arg APP_COMMIT=${{ github.sha }} -t student-competitions:ci .
+
+      - name: Start the container
+        run: |
+          docker run -d --name smoke -p 8000:8000 student-competitions:ci
+
+      # The image has no curl, so the container cannot report readiness to the runner itself.
+      # Poll from the runner, which does.
+      - name: Wait for the container to answer
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 5 http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+              echo "Container answered on attempt ${attempt}."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::The container did not answer http://127.0.0.1:8000/healthz within 60s."
+          docker logs smoke
+          exit 1
+
+      - name: Smoke test GET /healthz
+        run: |
+          set -euo pipefail
+          url="http://127.0.0.1:8000/healthz"
+          status=$(curl -s -o /tmp/healthz.json -w '%{http_code}' --max-time 10 "$url")
+          body=$(head -c 500 /tmp/healthz.json)
+
+          # Every failure below prints the URL, the status and an excerpt of the body, so the log
+          # is enough to act on without reproducing the run locally (FR-017).
+          if [ "$status" != "200" ]; then
+            echo "::error::GET $url returned $status (expected 200). Body: $body"
+            docker logs smoke
+            exit 1
+          fi
+
+          reported_status=$(jq -r '.status' /tmp/healthz.json)
+          if [ "$reported_status" != "ok" ]; then
+            echo "::error::GET $url reported status '$reported_status' (expected 'ok'). Body: $body"
+            exit 1
+          fi
+
+          reported_commit=$(jq -r '.commit' /tmp/healthz.json)
+          if [ "$reported_commit" != "${{ github.sha }}" ]; then
+            echo "::error::GET $url reported commit '$reported_commit' (expected '${{ github.sha }}'). Body: $body"
+            exit 1
+          fi
+
+          echo "GET $url → $status, $body"
+
+      - name: Smoke test GET /
+        run: |
+          set -euo pipefail
+          url="http://127.0.0.1:8000/"
+          status=$(curl -s -o /tmp/home.html -w '%{http_code}' --max-time 10 "$url")
+          body=$(head -c 500 /tmp/home.html)
+
+          if [ "$status" != "200" ]; then
+            echo "::error::GET $url returned $status (expected 200). Body: $body"
+            docker logs smoke
+            exit 1
+          fi
+
+          if ! grep -q 'Student Competitions' /tmp/home.html; then
+            echo "::error::GET $url did not contain the application name. Body: $body"
+            exit 1
+          fi
+
+          echo "GET $url → $status, home page contains the application name."
+
+      - name: Stop the container
+        if: always()
+        run: docker rm -f smoke

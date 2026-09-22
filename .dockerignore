@@ -1,0 +1,43 @@
+# Build context for the application image: only `pyproject.toml`, `uv.lock` and `app/` are
+# needed. Everything below is excluded so the context stays small and, above all, so no secret,
+# virtualenv or VCS metadata can reach a published image (FR-027).
+# See specs/002-public-deploy-cicd/contracts/container.md.
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Environments and secrets — nothing environment-specific belongs in an image
+.venv/
+.env
+.env.*
+
+# Tests, specs and documentation — not shipped to production
+tests/
+specs/
+docs/
+.github/
+scripts/
+migrations/
+.specify/
+.claude/
+README.md
+
+# Caches and build artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# The image itself
+Dockerfile
+.dockerignore

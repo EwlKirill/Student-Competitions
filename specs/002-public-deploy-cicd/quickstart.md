@@ -193,6 +193,15 @@ is the project's error page with a link home, not a Render error page and not a 
    an error.
 4. Revert, and confirm the next release restores a green pipeline.
 
+> **Step 3 cannot happen by merging a broken build to `main`.** `deploy.yml` gates the deploy job
+> on `needs: checks`, so a Dockerfile that cannot build fails `checks / image`, the deploy job is
+> **skipped**, the hook is never called and Render never learns the commit exists — there is no
+> failed Render deploy to look at. That path tests the CI gate, which is a different half of
+> FR-023. To test Render's own failure handling, push the broken commit to a throwaway branch and
+> call the hook at that SHA directly (`RENDER_DEPLOY_HOOK_URL=… ./scripts/render_deploy.sh <sha>`):
+> Render accepts a `ref` that is not on `main`, builds it, and fails it, while the previous
+> instance keeps serving. Nothing broken ever reaches `main`, so step 4 has nothing to revert.
+
 ### V9 — A merge reaches the public address on its own (US3 scenarios 1, 2 and 5; FR-020, FR-021; SC-007)
 
 1. Make a trivial visible change (a word in the home page description), open a pull request, let
@@ -222,21 +231,30 @@ is the project's error page with a link home, not a Render error page and not a 
    `/healthz` ends up reporting the **later** commit; no run reports success for a commit that is
    not the one serving.
 
+> **This scenario conflicts with B3's branch protection.** `strict` ("require branches to be up to
+> date before merging") means the second pull request goes out of date the moment the first merges,
+> so its merge button disables until someone clicks *Update branch* and waits for the checks to
+> re-run — two merges within a minute are impossible while it is on. Get both pull requests green
+> **first**, then uncheck that one setting, merge both, and re-check it immediately. Nothing else
+> in the rule is touched. Alternatively, merge the second within the first Deploy run's lifetime
+> (~1–10 minutes) rather than within a minute: overlapping the runs is what the concurrency group
+> actually reacts to.
+
 ---
 
 ## Milestone acceptance checklist
 
-- [ ] V1 — the page opens from an outside device over HTTPS (SC-001, SC-002)
+- [X] V1 — the page opens from an outside device over HTTPS (SC-001, SC-002)
 - [X] V2 — HTTP redirects, `/healthz` answers, unknown paths give the app's own 404
-- [ ] V3 — a restart restores service unattended (SC-011)
+- [X] V3 — a restart restores service unattended (SC-011)
 - [X] V4 — pull requests are checked automatically within 5 minutes (SC-006)
 - [X] V5 — the image builds and runs from a clean checkout in under 15 minutes (SC-010)
 - [X] V6 — a failing test blocks the merge (SC-004)
 - [X] V7 — a style violation blocks the merge (SC-005)
-- [ ] V8 — a broken publish leaves the previous version serving (SC-008)
+- [X] V8 — a broken publish leaves the previous version serving (SC-008)
 - [X] V9 — a merge reaches the public address with zero manual steps (SC-007)
 - [X] V10 — the diff and the logs contain no secret (SC-009)
-- [ ] V11 — the newest commit wins a race (FR-024)
+- [X] V11 — the newest commit wins a race (FR-024)
 - [X] The README records the public address and every environment variable (FR-007, FR-012)
 - [X] `uv run pytest`, `uv run ruff check .` and `uv run ruff format --check .` are green locally
 - [ ] SC-003 (99% of requests succeed over 24 h) — checked the day after the milestone lands, by

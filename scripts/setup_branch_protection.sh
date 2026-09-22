@@ -65,7 +65,14 @@ print(
             # first — this is what catches two independently green pull requests that conflict
             # only once combined.
             "required_status_checks": {"strict": True, "contexts": sys.argv[1:]},
-            "enforce_admins": None,
+            # Applies the rule to administrators too. `None` here would leave enforcement at
+            # "non_admins", which on a single-admin repository means the gate prevents nobody
+            # and FR-016 ("a failing check MUST prevent a merge") is hollow.
+            #
+            # Quickstart V8 deliberately forces a broken image build onto `main`. Untick
+            # "Do not allow bypassing the above settings" for that one experiment, then re-run
+            # this script to put the gate back up.
+            "enforce_admins": True,
             "required_pull_request_reviews": {
                 "required_approving_review_count": int(os.environ["REQUIRED_APPROVALS"]),
                 "dismiss_stale_reviews": False,

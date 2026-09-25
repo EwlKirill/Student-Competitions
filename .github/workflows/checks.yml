@@ -17,6 +17,24 @@ jobs:
     name: quality
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # A disposable instance of the production engine, so every database test also runs on
+    # PostgreSQL (FR-030). `trust` authentication means there is no password anywhere in this
+    # workflow, not even a throw-away one (SC-010).
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-retries 15
+    env:
+      # Read by tests/conftest.py only, never by the application. Without it under CI=true the
+      # suite refuses to start rather than skip the PostgreSQL half.
+      TEST_POSTGRES_URL: postgresql://postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
 
@@ -41,18 +59,57 @@ jobs:
     name: image
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The packaged application against the production engine: psycopg's bundled libpq, the
+    # entrypoint's migration step and the non-root user's permissions are all exercised here
+    # (specs/003-database-questions/contracts/pipeline.md#image). Same password-less service as
+    # `quality`.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-retries 15
     steps:
       - uses: actions/checkout@v4
 
       - name: Build the image
         run: docker build --build-arg APP_COMMIT=${{ github.sha }} -t student-competitions:ci .
 
+      # On Render a missing DATABASE_URL must fail the release, not fall back to a throw-away
+      # SQLite file inside the container (FR-004).
+      - name: Refuse to start on Render without a database
+        run: |
+          set -euo pipefail
+          # The step shell runs with -e, and a non-zero exit is the expected outcome here, so
+          # capture it instead of letting it end the step.
+          exit_code=0
+          output=$(docker run --rm -e RENDER=true student-competitions:ci 2>&1) || exit_code=$?
+          if [ "$exit_code" -eq 0 ]; then
+            echo "::error::The container started with RENDER=true and no DATABASE_URL (expected a non-zero exit). Output: ${output:0:1000}"
+            exit 1
+          fi
+          if ! printf '%s' "$output" | grep -q 'DATABASE_URL is required'; then
+            echo "::error::The container exited $exit_code without saying 'DATABASE_URL is required'. Output: ${output:0:1000}"
+            exit 1
+          fi
+          echo "Refused as expected (exit $exit_code): $(printf '%s' "$output" | grep 'DATABASE_URL is required')"
+
+      # `--network host` so the container reaches the service on 127.0.0.1. The plain
+      # `postgresql://` form is the one Neon hands out, so the URL normalisation runs in the real
+      # image.
       - name: Start the container
         run: |
-          docker run -d --name smoke -p 8000:8000 student-competitions:ci
+          docker run -d --name smoke --network host \
+            -e DATABASE_URL=postgresql://postgres@127.0.0.1:5432/postgres \
+            student-competitions:ci
 
       # The image has no curl, so the container cannot report readiness to the runner itself.
-      # Poll from the runner, which does.
+      # Poll from the runner, which does. The port opens only after the migrations and startup.
       - name: Wait for the container to answer
         run: |
           set -euo pipefail
@@ -96,25 +153,54 @@ jobs:
 
           echo "GET $url → $status, $body"
 
-      - name: Smoke test GET /
+      # Checked twice: once as started, and once after a restart against the same database,
+      # which must show the next boot number and the six sample questions exactly once — nothing
+      # lost, nothing re-seeded. That is the persistence proof, run on every pull request (US2,
+      # FR-020, FR-027).
+      - name: Smoke test GET /, restart, and again
         run: |
           set -euo pipefail
           url="http://127.0.0.1:8000/"
-          status=$(curl -s -o /tmp/home.html -w '%{http_code}' --max-time 10 "$url")
-          body=$(head -c 500 /tmp/home.html)
 
-          if [ "$status" != "200" ]; then
-            echo "::error::GET $url returned $status (expected 200). Body: $body"
+          fail() {
+            echo "::error::$1 Body: $(grep -m1 'class="db-status"' /tmp/home.html || head -c 500 /tmp/home.html)"
             docker logs smoke
             exit 1
-          fi
+          }
 
-          if ! grep -q 'Student Competitions' /tmp/home.html; then
-            echo "::error::GET $url did not contain the application name. Body: $body"
-            exit 1
-          fi
+          check_home() {
+            local expected_boots="$1"
+            status=$(curl -s -o /tmp/home.html -w '%{http_code}' --max-time 10 "$url" || true)
+            [ "$status" = "200" ] || fail "GET $url returned $status (expected 200)."
+            grep -q 'Student Competitions' /tmp/home.html ||
+              fail "GET $url did not contain the application name."
+            grep -q 'What is the boiling point of water at sea level' /tmp/home.html ||
+              fail "GET $url did not contain the first sample question."
+            ! grep -q 'temporarily unavailable' /tmp/home.html ||
+              fail "GET $url shows the 'temporarily unavailable' notice (expected the questions)."
+            grep -q 'data-engine="postgresql"' /tmp/home.html ||
+              fail "GET $url does not report data-engine=\"postgresql\"."
+            found=$(sed -n 's/.*data-boots="\([0-9]*\)".*/\1/p' /tmp/home.html)
+            [ "$found" = "$expected_boots" ] ||
+              fail "GET $url shows data-boots=\"$found\" (expected \"$expected_boots\")."
+            items=$(sed -n '/<ol class="question-list">/,/<\/ol>/p' /tmp/home.html | grep -c '<li>' || true)
+            [ "$items" = "6" ] ||
+              fail "GET $url lists $items questions (expected the 6 samples exactly once)."
+            echo "GET $url → $status: PostgreSQL, boot #$found, $items sample questions."
+          }
 
-          echo "GET $url → $status, home page contains the application name."
+          wait_for_container() {
+            for attempt in $(seq 1 30); do
+              curl -fsS --max-time 5 http://127.0.0.1:8000/healthz >/dev/null 2>&1 && return 0
+              sleep 2
+            done
+            fail "The restarted container did not answer http://127.0.0.1:8000/healthz within 60s."
+          }
+
+          check_home 1
+          docker restart smoke
+          wait_for_container
+          check_home 2
 
       - name: Stop the container
         if: always()

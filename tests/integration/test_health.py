@@ -3,8 +3,13 @@
 See specs/002-public-deploy-cicd/contracts/http-routes.md#get-healthz--service-status.
 """
 
-from fastapi.testclient import TestClient
+from typing import Any
 
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.exc import OperationalError
+
+import app.routers.pages as pages
 from app.core.config import APP_VERSION
 
 
@@ -37,3 +42,24 @@ def test_healthz_commit_is_a_non_empty_string(client: TestClient) -> None:
     commit = client.get("/healthz").json()["commit"]
     assert isinstance(commit, str)
     assert commit
+
+
+def test_healthz_stays_ok_while_the_database_is_failing(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Liveness never depends on the database, so a blip cannot make Render restart a healthy
+    process in a loop (FR-029)."""
+
+    def failing(*args: Any, **kwargs: Any) -> Any:
+        raise OperationalError("SELECT 1", {}, Exception("boom"))
+
+    monkeypatch.setattr(pages, "list_questions", failing)
+
+    home = client.get("/")
+    assert home.status_code == 200
+    assert "Question data is temporarily unavailable" in home.text
+
+    health = client.get("/healthz")
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+    assert set(health.json()) == {"status", "version", "commit"}

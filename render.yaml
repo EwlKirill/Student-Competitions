@@ -2,7 +2,10 @@
 # Contract: specs/002-public-deploy-cicd/contracts/render-service.md — rationale: research D1–D3.
 #
 # `region` is immutable after creation: changing it means a new service and a new public address.
-# No secret is declared here, and none may be added — the service needs none (FR-030).
+# One secret, the production database URL, is declared below by key only (`sync: false`): its
+# value is entered once in the Render dashboard and is never committed (milestone 3 FR-032).
+# The database itself is on Neon, not Render, so there is no `databases:` block here
+# (specs/003-database-questions/research.md#d1).
 services:
   - type: web
     name: student-competitions
@@ -25,3 +28,9 @@ services:
       # explicitly so the bind address is visible rather than implied.
       - key: HOST
         value: 0.0.0.0
+      # Neon's direct (non-pooled) connection string, entered once in Render → service →
+      # Environment (specs/003-database-questions/quickstart.md, step N2). `sync: false` declares
+      # the key without a value. Without it the service refuses to start rather than fall back to
+      # a throw-away SQLite file inside the container.
+      - key: DATABASE_URL
+        sync: false

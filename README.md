@@ -2,7 +2,7 @@
 
 A web application for running online knowledge competitions among students. Teachers manage students, a question bank and competitions; students answer questions in writing; answers are scored by an LLM..
 
-> **Status:** milestone 2 in progress — the application is packaged as a Docker image, every pull request is verified by GitHub Actions, and a merge to `main` publishes itself to Render. Implementation is driven by [GitHub Spec Kit](https://github.com/github/spec-kit).
+> **Status:** milestone 3 in progress — the application has a database: sample questions are stored by a migration and listed on the home page, alongside a status line showing the engine, the schema revision and how many times the application has started. Locally it uses a SQLite file; in production, PostgreSQL on Neon. Implementation is driven by [GitHub Spec Kit](https://github.com/github/spec-kit).
 
 **Public address:** <https://student-competitions.onrender.com> — served from Render, HTTPS only. `GET /healthz` there reports the commit currently live.
 
@@ -10,9 +10,9 @@ A web application for running online knowledge competitions among students. Teac
 
 ### Prerequisites
 
-[`uv`](https://docs.astral.sh/uv/) — and nothing else. **No system Python is required:** `uv` reads `.python-version` and provisions Python 3.13 itself. There is no database to set up, no `.env` file and no API keys.
+[`uv`](https://docs.astral.sh/uv/) — and nothing else. **No system Python is required:** `uv` reads `.python-version` and provisions Python 3.13 itself. There is no database server to install, no `.env` file and no API keys: locally the application uses a SQLite file that the first migration creates.
 
-Docker is needed only to build and run the packaged application ([below](#run-the-packaged-application)); it is not needed for development.
+Docker is needed only to build and run the packaged application ([below](#run-the-packaged-application)) and, optionally, to run the PostgreSQL half of the test suite ([below](#test)); it is not needed for development.
 
 ### Setup
 
@@ -25,8 +25,11 @@ uv sync
 ### Run
 
 ```bash
+uv run alembic upgrade head          # creates data/student_competitions.sqlite3 at the newest schema
 uv run uvicorn app.main:app --reload
 ```
+
+Run `uv run alembic upgrade head` again after pulling a change that adds a migration. If you forget, the application refuses to start and prints that command. To start over from nothing, stop the application, delete `data/student_competitions.sqlite3` and migrate again.
 
 The startup output ends with the address it is serving on:
 
@@ -41,6 +44,35 @@ Open <http://127.0.0.1:8000>. If port 8000 is already taken, pass `--port 8001`.
 ```bash
 uv run pytest
 ```
+
+Every test that touches the database runs twice, as `[sqlite]` and `[postgresql]`. Without further setup the SQLite cases run and the PostgreSQL ones are skipped with a reason. To run both engines the way CI does, start a password-less PostgreSQL 17 and point `TEST_POSTGRES_URL` at it:
+
+```bash
+docker run -d --name sc-pg -e POSTGRES_HOST_AUTH_METHOD=trust -p 5432:5432 postgres:17
+TEST_POSTGRES_URL=postgresql://postgres@localhost:5432/postgres uv run pytest
+docker rm -f sc-pg                   # when done
+```
+
+The suite creates and drops its own uniquely named databases on that server, and never touches `data/` or whatever `DATABASE_URL` points to. In CI (`CI=true`) a missing `TEST_POSTGRES_URL` fails the run at start, so the PostgreSQL half can never be skipped silently.
+
+### Adding a migration
+
+Every change to the database structure is an Alembic migration in `migrations/versions/`; nothing creates tables any other way.
+
+```bash
+# 1. change or add a model in app/models/ (and import it in app/models/__init__.py)
+uv run alembic revision --autogenerate -m "short description"
+# 2. read the generated file and fix what autogenerate got wrong
+uv run alembic upgrade head
+uv run pytest                        # the drift, single-head and stairway tests guard the history
+```
+
+Rules that keep releases safe:
+
+- **Keep the previous release working.** During a deploy the old and the new version run side by side for a moment, both against the new schema. Add first (a new column, a new table) and remove in a later release, never both in one.
+- **Data migrations use a frozen table.** Describe the table with `sa.table(...)` inside the migration; never import from `app`, whose models will change later.
+- **Migrations run themselves on release.** The container runs `alembic upgrade head` before starting the application; there is no manual production command. On PostgreSQL the whole upgrade is one transaction behind an advisory lock, so a failure changes nothing and two starting instances cannot both apply it.
+- **SQLite is not transactional for schema changes.** A failed local migration may leave `data/student_competitions.sqlite3` half-migrated: fix the migration and run it again, or delete the file and migrate from scratch.
 
 ### Lint & format
 
@@ -59,6 +91,8 @@ docker run --rm -p 8000:8000 student-competitions
 ```
 
 Open <http://localhost:8000>. `APP_COMMIT` is optional — it stamps the commit that `/healthz` reports; without it the endpoint reports `"unknown"`.
+
+The container migrates its database before the application starts. With no `DATABASE_URL` it uses a throw-away SQLite file inside the container; to use a PostgreSQL database instead, pass `-e DATABASE_URL=postgresql://…`.
 
 The port is configuration, not code. To listen somewhere else, with no rebuild:
 
@@ -87,7 +121,7 @@ Every page also carries the same release identity in its footer — `v<version>`
 
 ### Environment variables
 
-The complete configuration surface. Every one is optional — the application starts on the defaults below with nothing supplied.
+The complete configuration surface. Locally every one is optional — the application starts on the defaults below with nothing supplied. On Render, `DATABASE_URL` is required.
 
 | Variable | Read by | Default | Purpose |
 |---|---|---|---|
@@ -96,8 +130,11 @@ The complete configuration surface. Every one is optional — the application st
 | `APP_COMMIT` | `app/core/config.py` | *(empty)* | Stamps the commit for a local or CI build. Empty falls through to `RENDER_GIT_COMMIT`. |
 | `RENDER_GIT_COMMIT` | `app/core/config.py` | *(unset off-Render)* | Set automatically by Render for every deploy; what makes `/healthz` truthful in production. |
 | `PYTHONUNBUFFERED` | Python | `1` (set in the image) | Logs reach the platform's stream immediately instead of sitting in a buffer. |
+| `DATABASE_URL` | `app/core/config.py` and `migrations/env.py` | `sqlite:///<repository>/data/student_competitions.sqlite3`, **only when not on Render** | Where the database is. `sqlite:///…` or `postgresql://…` (also `postgres://`; normalised to the psycopg driver). **A secret in production**: Neon's connection string, set only in Render's dashboard and never committed, pasted or logged. |
+| `RENDER` | `app/core/config.py` | *(unset)* | Set to `true` by Render. Turns a missing `DATABASE_URL` into a refusal to start instead of a silent fallback to SQLite. Do not set it locally. |
+| `TEST_POSTGRES_URL` | `tests/conftest.py` only | *(unset: PostgreSQL tests skipped)* | **Tests only** — never read by the application. A PostgreSQL server where the tests may create databases. Not a secret (a disposable, password-less server). |
 
-**None of these is a secret, and no secret may be added to this table.** Secrets belong to the pipeline and the hosting platform, never to the image or the repository.
+`DATABASE_URL` in production is the **only** secret the application reads. It lives in Render's service environment and nowhere else: not in this repository, not in the image and not in GitHub. Everything else in this table is not secret.
 
 ## Deployment
 
@@ -108,6 +145,14 @@ Hosted on [Render](https://render.com) (free instance type, Frankfurt), configur
 Merge to `main`. That is the whole procedure — no commands, no dashboard.
 
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) then runs the same checks a pull request runs, calls Render's deploy hook pinned to the merged commit, and polls the public `/healthz` until it reports that commit. The workflow only reports success once the public address is actually serving the merged commit; the GitHub **Environments → production** view records which commit went live and when.
+
+Each release runs `alembic upgrade head` before the new version serves: the container's entrypoint migrates, then starts the application. A failed migration stops the container before it opens its port, so Render keeps the previous release serving. After the release, the deploy job checks the home page's status line with [`scripts/database_status.sh`](scripts/database_status.sh): it must show this commit's schema revision and a boot count higher than before the release, which proves the data survived the redeploy.
+
+### Production database
+
+PostgreSQL 17 on Neon's free plan (project `student-competitions`, AWS Europe Central 1 / Frankfurt), next to the Render service. Render reads its **direct** (non-pooled) connection string from the `DATABASE_URL` environment variable, declared in `render.yaml` without a value and entered once in the dashboard. The one-time bootstrap is described in [`specs/003-database-questions/quickstart.md`](specs/003-database-questions/quickstart.md#one-time-bootstrap-production-database).
+
+To rotate the credential: in Neon, reset the role's password and copy the new connection string; in Render → service → Environment, replace `DATABASE_URL` and choose **Save, rebuild, and deploy**.
 
 ### Rolling back
 
@@ -130,7 +175,7 @@ A failed release leaves the previous version serving: Render switches traffic on
 
 | Workflow | Runs on | Does |
 |---|---|---|
-| [`checks.yml`](.github/workflows/checks.yml) | called by the two below | `quality` (tests, `ruff check`, `ruff format --check`) and `image` (builds the Dockerfile and smoke-tests the container) |
+| [`checks.yml`](.github/workflows/checks.yml) | called by the two below | `quality` (tests on SQLite and on a PostgreSQL service, `ruff check`, `ruff format --check`) and `image` (builds the Dockerfile, checks it refuses to start on Render without a database, and smoke-tests the container against PostgreSQL across a restart) |
 | [`ci.yml`](.github/workflows/ci.yml) | every pull request against `main` | Calls `checks.yml`. Branch protection requires both jobs, so a failing check blocks the merge. |
 | [`deploy.yml`](.github/workflows/deploy.yml) | every push to `main` | Calls `checks.yml`, then deploys and verifies the release. |
 
@@ -147,7 +192,7 @@ Apply the branch protection rule with [`scripts/setup_branch_protection.sh`](scr
 |---|---|
 | Backend | Python + FastAPI |
 | Frontend | Server-side rendering: Jinja2 + HTMX + Pico.css |
-| Database | SQLite (local) / PostgreSQL (production) via SQLModel + Alembic |
+| Database | SQLModel + Alembic migrations, psycopg 3; SQLite locally and in tests, PostgreSQL 17 on Neon's free plan in production (and in CI) |
 | Authentication | Email OTP + server-side sessions in a signed cookie |
 | Answer evaluation | LLM API (Claude or OpenAI) with structured output |
 | Containerization | Docker (two-stage build, non-root, uv-locked dependencies) |
@@ -168,35 +213,42 @@ Apply the branch protection rule with [`scripts/setup_branch_protection.sh`](scr
 │   └── deploy.yml           # Push to main → checks, deploy, verify
 ├── docs/requirements/       # Source product & technical requirements
 ├── specs/                   # Feature specs created by /speckit-specify (NNN-feature-name/)
-├── Dockerfile               # Two-stage image: uv builder → python:3.13-slim runtime
-├── .dockerignore            # Build context: keeps tests, specs, .git and env files out
+├── Dockerfile               # Two-stage image: uv builder → python:3.13-slim runtime; migrates, then serves
+├── .dockerignore            # Build context: keeps tests, specs, .git, env files and local databases out
 ├── render.yaml              # Render Blueprint: the service, as code
+├── alembic.ini              # Alembic: script location, file naming, ruff hooks (no database URL)
 ├── pyproject.toml           # Project metadata, dependencies, ruff & pytest config
 ├── uv.lock                  # Committed lockfile
 ├── .python-version          # 3.13
 ├── app/                     # FastAPI application
-│   ├── main.py              # App construction: static mount, routers, error handler
+│   ├── main.py              # App construction: startup (database guard, boot count), routers, error handler
 │   ├── core/                # Settings, security, sessions, DB engine
-│   │   ├── config.py        # APP_NAME, APP_TAGLINE, APP_DESCRIPTION, APP_VERSION, COMMIT_SHA
+│   │   ├── config.py        # App constants, COMMIT_SHA, resolve_database_url
+│   │   ├── db.py            # Engine, per-request session, UTC timestamp column type
+│   │   ├── migrations.py    # Expected (head) and current schema revision; startup guard
 │   │   └── templates.py     # Shared Jinja2Templates instance
-│   ├── models/              # SQLModel tables (milestone 3)
-│   ├── schemas/             # Request/response & LLM structured-output schemas
+│   ├── models/              # SQLModel tables: Question, BootCounter
+│   ├── schemas/             # Validation and view schemas: QuestionCreate/Update/Public
 │   ├── routers/             # Route handlers grouped by area/role
-│   │   ├── pages.py         # GET / → home page
+│   │   ├── pages.py         # GET / → home page with the question list and status line
 │   │   └── health.py        # GET /healthz → status, version, commit
-│   ├── services/            # Business logic (competitions, scoring, email, LLM)
+│   ├── services/            # Business logic: questions (CRUD), database_status (boot count)
 │   ├── templates/           # Jinja2: layouts/, partials/ (HTMX fragments), pages/
 │   │   ├── layouts/base.html
 │   │   └── pages/           # home.html, error.html
 │   └── static/              # css/ (vendored pico.min.css + app.css), js/, img/
-├── migrations/              # Alembic migrations (milestone 3)
+├── migrations/              # Alembic migrations
+│   ├── env.py               # Uses resolve_database_url; one locked transaction on PostgreSQL
+│   └── versions/            # Revisions: tables + boot counter, then the sample questions
+├── data/                    # Local SQLite database (git-ignored, created by the first migration)
 ├── tests/                   # unit/, integration/, e2e/ (Playwright)
-│   ├── conftest.py          # `client` fixture over the FastAPI test client
-│   ├── unit/test_config.py
-│   └── integration/         # test_home.py, test_health.py
+│   ├── conftest.py          # Both-engine database fixtures (template + clone), `client`
+│   ├── unit/                # test_config.py, test_database_config.py, test_question_schemas.py
+│   └── integration/         # home, health, routes, startup, migrations, boot counter, question service
 └── scripts/                 # Developer & ops helper scripts
     ├── render_deploy.sh            # Trigger a Render deploy of one commit
     ├── wait_for_release.sh         # Poll /healthz until that commit is serving
+    ├── database_status.sh          # Read the public boot count; verify revision and boot count after a release
     └── setup_branch_protection.sh  # Apply the main branch protection rule
 ```
 

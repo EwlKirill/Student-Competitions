@@ -23,8 +23,8 @@ The ladder follows a "walking skeleton" approach: first ship an empty skeleton t
 2. **Deploy Hello World to the internet + CI/CD.** Dockerfile, deployment to Render, public URL. GitHub Actions runs tests and linting on PRs, auto-deploy on push to `main`.
    _Test:_ the page is accessible from outside, the pipeline is green.
 
-3. **Database + first entity.** Connect the database (SQLite → Postgres), create the "Question" model with CRUD and persistence.
-   _Test:_ data survives a restart, migrations are applied.
+3. **Database + first entity.** Connect the database (SQLite locally, Postgres in production) with Alembic migrations. Create the "Question" model with a CRUD layer covered by tests (no write endpoints, since there is no authentication yet). The public page shows a read-only list of seeded sample questions and a database status line (database type, migration revision, boot count).
+   _Test:_ CRUD tests pass on SQLite and Postgres in CI; in production, the sample questions are visible and the boot count increases across a redeploy.
 
 4. **Email code authentication.** Email input form → code sent to email → code verification → session.
    _Test:_ a user can log in, a protected page is accessible only to logged-in users.

@@ -1,6 +1,8 @@
 # The packaged application: one self-contained, reproducible unit that a developer, the CI
 # `image` job and Render all run identically (FR-008, FR-011).
 # Contract: specs/002-public-deploy-cicd/contracts/container.md — rationale: research D5.
+# Milestone 3 adds the migrations and runs them before the application starts:
+# specs/003-database-questions/contracts/pipeline.md — rationale: research D4.
 
 # ---------------------------------------------------------------------------------------------
 # Builder — resolves the locked dependencies into a virtualenv, and ships none of its own tooling
@@ -44,11 +46,17 @@ WORKDIR /app
 # dependencies or source.
 COPY --from=builder /app/.venv /app/.venv
 COPY app ./app
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 # Non-root, with no login shell and no home directory to write to. The uid is well above the
 # range Debian reserves for system accounts, so it cannot collide with one the base image adds
 # later; `--system` is deliberately absent, since it warns about exactly that uid range.
 RUN useradd --no-create-home --shell /usr/sbin/nologin --uid 10001 appuser
+
+# The one writable path: the default SQLite file for a local `docker run` with no DATABASE_URL.
+# On Render the database is always external — a missing DATABASE_URL refuses to start there.
+RUN mkdir -p /app/data && chown appuser /app/data
 USER appuser
 
 # Documentation only — the real port comes from $PORT.
@@ -56,11 +64,18 @@ EXPOSE 8000
 
 # There is no curl in this image, so the check is a Python one-liner. Render uses
 # `healthCheckPath` from render.yaml instead; this makes `docker run` behave like production and
-# gives the CI smoke test something to wait on.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+# gives the CI smoke test something to wait on. The start period allows for the migrations,
+# which now run before the port opens.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD python -c "import os,sys,urllib.request as u; sys.exit(0 if u.urlopen('http://127.0.0.1:'+os.environ.get('PORT','8000')+'/healthz', timeout=4).status==200 else 1)"
 
+# Migrate, then serve. Migrations run here because Render's free plan has no pre-deploy command;
+# `&&` means a failed migration (or a missing DATABASE_URL on Render) exits the container before
+# uvicorn ever binds the port, so the release fails and the previous one keeps serving. On
+# PostgreSQL the whole upgrade is one transaction behind an advisory lock, so two instances
+# starting during a deploy overlap cannot both apply it.
+#
 # `sh -c` because the exec form does not expand ${PORT}; `exec` so uvicorn becomes PID 1 and
 # receives SIGTERM directly — without it the shell stays PID 1, does not forward the signal, and
 # every redeploy ends in a SIGKILL after the platform's grace period instead of a clean shutdown.
-CMD ["sh", "-c", "exec uvicorn app.main:app --host ${HOST:-0.0.0.0} --port ${PORT:-8000}"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host ${HOST:-0.0.0.0} --port ${PORT:-8000}"]

@@ -4,3 +4,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .DS_Store
+
+# Local SQLite database (the default when DATABASE_URL is unset)
+data/

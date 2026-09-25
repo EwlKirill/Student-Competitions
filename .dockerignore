@@ -1,7 +1,9 @@
-# Build context for the application image: only `pyproject.toml`, `uv.lock` and `app/` are
-# needed. Everything below is excluded so the context stays small and, above all, so no secret,
-# virtualenv or VCS metadata can reach a published image (FR-027).
-# See specs/002-public-deploy-cicd/contracts/container.md.
+# Build context for the application image: only `pyproject.toml`, `uv.lock`, `app/`,
+# `alembic.ini` and `migrations/` are needed. Everything below is excluded so the context stays
+# small and, above all, so no secret, virtualenv, local database or VCS metadata can reach a
+# published image (FR-027).
+# See specs/002-public-deploy-cicd/contracts/container.md and
+# specs/003-database-questions/contracts/pipeline.md.
 
 # Version control
 .git/
@@ -13,13 +15,18 @@
 .env
 .env.*
 
+# A developer's local database — never baked into an image (specs/003-database-questions/
+# contracts/pipeline.md)
+data/
+*.sqlite3
+*.db
+
 # Tests, specs and documentation — not shipped to production
 tests/
 specs/
 docs/
 .github/
 scripts/
-migrations/
 .specify/
 .claude/
 README.md

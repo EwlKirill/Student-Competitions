@@ -8,4 +8,21 @@
   <p class="tagline">{{ app_tagline }}</p>
   <p>{{ app_description }}</p>
 </section>
+{% if data_available %}
+<section id="questions" aria-labelledby="questions-heading">
+  <h2 id="questions-heading">Sample questions</h2>
+  {% if questions %}
+  <ol class="question-list">
+    {% for question in questions %}
+    <li>{{ question.text }}</li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="questions-empty">No questions yet.</p>
+  {% endif %}
+</section>
+<p class="db-status" data-engine="{{ db_status.engine }}" data-revision="{{ db_status.revision }}" data-boots="{{ db_status.boots }}">Database: {{ db_status.display_name }} · schema revision <code>{{ db_status.revision }}</code> · boot #{{ db_status.boots }}</p>
+{% else %}
+<p class="data-unavailable" role="status">Question data is temporarily unavailable. Please try again in a moment.</p>
+{% endif %}
 {% endblock %}

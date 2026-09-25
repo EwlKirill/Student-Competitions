@@ -26,3 +26,33 @@
 .release code {
   font-size: 0.875em;
 }
+
+/* Question text keeps its line breaks, and long words wrap rather than push the page wider than
+   a phone screen (spec edge cases). */
+.question-list li {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.questions-empty {
+  color: var(--pico-muted-color);
+}
+
+/* Shown in place of the data when the database fails mid-request (FR-026): visible, not alarming. */
+.data-unavailable {
+  border-left: 0.25rem solid var(--pico-muted-border-color);
+  color: var(--pico-muted-color);
+  padding: 0.75rem 1rem;
+}
+
+/* Which database is serving, at which schema revision, and how many times the application has
+   started against it (FR-025). Quiet like the release footer; the revision wraps on a phone. */
+.db-status {
+  color: var(--pico-muted-color);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.db-status code {
+  font-size: 0.875em;
+}

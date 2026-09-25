@@ -244,16 +244,16 @@ reload is the measurement (open DevTools → Network → document time).
 ## Milestone acceptance checklist
 
 - [X] N1 and N2 done; `DATABASE_URL` exists only in Render's environment
-- [ ] V1: clean checkout → samples + status line locally in under 15 minutes
-- [ ] V2: full suite green on both engines locally
-- [ ] V3: defect PR fails on both engines and cannot merge; PR verification under 10 minutes
-- [ ] V4: `image` job green (migrate on start, boot 1 → 2 across restart, refusal without config)
+- [X] V1: clean checkout → samples + status line locally in under 15 minutes
+- [X] V2: full suite green on both engines locally
+- [X] V3: defect PR fails on both engines and cannot merge; PR verification under 10 minutes
+- [X] V4: `image` job green (migrate on start, boot 1 → 2 across restart, refusal without config)
 - [X] V5: samples visible from an outside device; no answers, no forms
 - [X] V6: deploy job's *Verify data* green; boot count witnessed rising across a redeploy
 - [X] V7: probe migration failed in production, previous version kept serving, probe table absent, revert green
-- [ ] V8, V9: automated tests green
+- [X] V8, V9: automated tests green
 - [X] V10: no credential in the diff, the logs or the image
-- [ ] README updated: local migrate command, `DATABASE_URL` / `RENDER` / `TEST_POSTGRES_URL`, running the PostgreSQL tests, adding a migration
+- [X] README updated: local migrate command, `DATABASE_URL` / `RENDER` / `TEST_POSTGRES_URL`, running the PostgreSQL tests, adding a migration
 
 ## Reference
 

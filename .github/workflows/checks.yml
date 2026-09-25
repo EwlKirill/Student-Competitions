@@ -84,9 +84,11 @@ jobs:
       # SQLite file inside the container (FR-004).
       - name: Refuse to start on Render without a database
         run: |
-          set -uo pipefail
-          output=$(docker run --rm -e RENDER=true student-competitions:ci 2>&1)
-          exit_code=$?
+          set -euo pipefail
+          # The step shell runs with -e, and a non-zero exit is the expected outcome here, so
+          # capture it instead of letting it end the step.
+          exit_code=0
+          output=$(docker run --rm -e RENDER=true student-competitions:ci 2>&1) || exit_code=$?
           if [ "$exit_code" -eq 0 ]; then
             echo "::error::The container started with RENDER=true and no DATABASE_URL (expected a non-zero exit). Output: ${output:0:1000}"
             exit 1

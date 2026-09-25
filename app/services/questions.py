@@ -46,7 +46,7 @@ def get_question(session: Session, question_id: int) -> Question:
 
 def list_questions(session: Session) -> list[Question]:
     """All questions, oldest first; ties on creation time broken by id (FR-016)."""
-    return list(session.exec(select(Question).order_by(Question.created_at, Question.id)))
+    return list(session.exec(select(Question).order_by(Question.id.desc())))
 
 
 def update_question(session: Session, question_id: int, data: QuestionUpdate) -> Question:

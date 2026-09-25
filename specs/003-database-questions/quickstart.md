@@ -235,7 +235,7 @@ reload is the measurement (open DevTools → Network → document time).
 
 ## Milestone acceptance checklist
 
-- [ ] N1 and N2 done; `DATABASE_URL` exists only in Render's environment
+- [X] N1 and N2 done; `DATABASE_URL` exists only in Render's environment
 - [ ] V1: clean checkout → samples + status line locally in under 15 minutes
 - [ ] V2: full suite green on both engines locally
 - [ ] V3: defect PR fails on both engines and cannot merge; PR verification under 10 minutes

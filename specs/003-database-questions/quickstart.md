@@ -205,6 +205,14 @@ A migration that fails in CI cannot be merged (V3), so the probe must fail **onl
 4. Revert the probe commit on `main` immediately (constitution: a failed deployment is fixed or
    reverted before new feature work merges). The revert's release goes green.
 
+> **Step 1 as written fails CI.** A probe that leaves `sc007_probe` behind off Render trips
+> `test_models_match_the_migrated_schema` on both engines (autogenerate sees a table with no
+> model), so the merge is blocked. Drop the table again in the same `upgrade()` when `RENDER` is
+> unset, and make `downgrade()` a no-op: on Render the table is still created before the raise, so
+> the rollback is still what is tested. The probe used for the recorded run was `15122e55c43b`
+> (PR #13, reverted by PR #14). On the free plan the boot count may rise while the probe is
+> failing: idle instances sleep and wake on the next visit, and each wake is a real boot.
+
 ### V8: A database blip degrades the page, not the service (FR-026, FR-029; edge case)
 
 Automated: `test_home.py` forces the page's database reads to raise `OperationalError` and asserts
@@ -236,16 +244,16 @@ reload is the measurement (open DevTools → Network → document time).
 ## Milestone acceptance checklist
 
 - [X] N1 and N2 done; `DATABASE_URL` exists only in Render's environment
-- [ ] V1: clean checkout → samples + status line locally in under 15 minutes
-- [ ] V2: full suite green on both engines locally
-- [ ] V3: defect PR fails on both engines and cannot merge; PR verification under 10 minutes
-- [ ] V4: `image` job green (migrate on start, boot 1 → 2 across restart, refusal without config)
-- [ ] V5: samples visible from an outside device; no answers, no forms
-- [ ] V6: deploy job's *Verify data* green; boot count witnessed rising across a redeploy
-- [ ] V7: probe migration failed in production, previous version kept serving, probe table absent, revert green
-- [ ] V8, V9: automated tests green
-- [ ] V10: no credential in the diff, the logs or the image
-- [ ] README updated: local migrate command, `DATABASE_URL` / `RENDER` / `TEST_POSTGRES_URL`, running the PostgreSQL tests, adding a migration
+- [X] V1: clean checkout → samples + status line locally in under 15 minutes
+- [X] V2: full suite green on both engines locally
+- [X] V3: defect PR fails on both engines and cannot merge; PR verification under 10 minutes
+- [X] V4: `image` job green (migrate on start, boot 1 → 2 across restart, refusal without config)
+- [X] V5: samples visible from an outside device; no answers, no forms
+- [X] V6: deploy job's *Verify data* green; boot count witnessed rising across a redeploy
+- [X] V7: probe migration failed in production, previous version kept serving, probe table absent, revert green
+- [X] V8, V9: automated tests green
+- [X] V10: no credential in the diff, the logs or the image
+- [X] README updated: local migrate command, `DATABASE_URL` / `RENDER` / `TEST_POSTGRES_URL`, running the PostgreSQL tests, adding a migration
 
 ## Reference
 

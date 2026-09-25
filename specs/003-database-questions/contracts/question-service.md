@@ -24,6 +24,11 @@ Types are in [data-model.md](../data-model.md): `Question` (§1), `QuestionCreat
   defined in `app/services/questions.py`, whose message names the id (FR-015). No function returns
   `None` for "not found".
 - Timestamps come from `app.core.db.utc_now()` and are always timezone-aware UTC (FR-006).
+- **No authorization yet.** Before roles exist, the functions enforce none. This is a recorded
+  Principle IV deviation ([plan.md → Complexity Tracking](../plan.md#complexity-tracking)).
+  They are safe only because no route calls them. The first caller, milestone 6's question bank,
+  **must** put a teacher role check in front of `create_question`, `update_question` and
+  `delete_question` and add allowed/denied tests for each role.
 
 ---
 

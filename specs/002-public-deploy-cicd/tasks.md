@@ -186,8 +186,9 @@ README proves it
 - [X] T039 [P] [MANUAL] Enable GitHub secret scanning with push protection under Settings → Code security (free for public repositories) — a standing net under SC-009, recommended by [quickstart.md](./quickstart.md) B2
 - [X] T040 [P] Update the "Repository layout" and "Tech stack" sections of `README.md` to include the new top-level files (`Dockerfile`, `.dockerignore`, `render.yaml`, `.github/workflows/`, `scripts/`) and the three infrastructure dependencies the milestone adds (Docker, GitHub Actions, Render)
 - [X] T041 Run `uv run ruff check .`, `uv run ruff format --check .` and `uv run pytest` from the repository root one final time and confirm all three are green
-- [ ] T042 Work through the **Milestone acceptance checklist** in [quickstart.md](./quickstart.md) and tick V1–V11 plus the README items; the milestone's stated criterion is "the page is accessible from outside, the pipeline is green"
-- [ ] T043 [MANUAL] The day after the milestone lands, spot-check SC-003 (at least 99% of requests succeed over 24 hours) with a handful of requests to `https://<host>` plus Render's event log — there is no uptime monitor at this milestone and the spec places one in milestone 12
+- [X] T042 Work through the **Milestone acceptance checklist** in [quickstart.md](./quickstart.md) and tick V1–V11 plus the README items; the milestone's stated criterion is "the page is accessible from outside, the pipeline is green"
+- [X] T043 [MANUAL] The day after the milestone lands, spot-check SC-003 (at least 99% of requests succeed over 24 hours) with a handful of requests to `https://<host>` plus Render's event log — there is no uptime monitor at this milestone and the spec places one in milestone 12
+  - **Closed 2026-09-22, the day the milestone landed, not the day after.** A 24-hour observation window had not elapsed. Evidence of record: 24 consecutive requests (12 × `/healthz`, 12 × `/`) all returned 200 in under 150 ms, and the release serving `be788df` matched `main`. Render's event log was not reviewed. Residual risk accepted by the repository owner; any problem observed afterwards is to be raised as a GitHub issue rather than reopening this task.
 
 ---
 

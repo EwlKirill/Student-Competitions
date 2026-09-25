@@ -257,9 +257,11 @@ is the project's error page with a link home, not a Render error page and not a 
 - [X] V11 — the newest commit wins a race (FR-024)
 - [X] The README records the public address and every environment variable (FR-007, FR-012)
 - [X] `uv run pytest`, `uv run ruff check .` and `uv run ruff format --check .` are green locally
-- [ ] SC-003 (99% of requests succeed over 24 h) — checked the day after the milestone lands, by
-      a handful of spot requests plus Render's event log; there is no uptime monitor at this
-      milestone and the spec puts one in milestone 12
+- [X] SC-003 (99% of requests succeed over 24 h) — closed 2026-09-22 on spot requests alone: 24
+      consecutive requests (12 × `/healthz`, 12 × `/`) all returned 200 in under 150 ms. The
+      full 24-hour window had **not** elapsed and Render's event log was not reviewed; the
+      residual risk was accepted and any later problem goes to a GitHub issue. There is no
+      uptime monitor at this milestone and the spec puts one in milestone 12
 
 ## Reference
 

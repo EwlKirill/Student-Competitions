@@ -4,7 +4,7 @@ A web application for running online knowledge competitions among students. Teac
 
 > **Status:** milestone 3 in progress — the application has a database: sample questions are stored by a migration and listed on the home page, alongside a status line showing the engine, the schema revision and how many times the application has started. Locally it uses a SQLite file; in production, PostgreSQL on Neon. Implementation is driven by [GitHub Spec Kit](https://github.com/github/spec-kit).
 
-**Public address:** <https://student-competitions.onrender.com> — served from Render, HTTPS only. `GET /healthz` there reports the commit currently live.
+**Public address:** <https://brainring.org.ua> — served from Render, HTTPS only (`www.brainring.org.ua` redirects there; the Render address <https://student-competitions.onrender.com> still works as a fallback). `GET /healthz` there reports the commit currently live.
 
 ## Getting started
 
@@ -140,6 +140,10 @@ The complete configuration surface. Locally every one is optional — the applic
 
 Hosted on [Render](https://render.com) (free instance type, Frankfurt), configured by [`render.yaml`](render.yaml). Render's own auto-deploy is **off**: the pipeline is the only thing that releases.
 
+### Domain
+
+`brainring.org.ua` is registered at [NIC.UA](https://nic.ua), which also hosts its DNS: an `A` record for the root pointing to Render's load balancer (`216.24.57.1`) and a `CNAME` for `www` pointing to `student-competitions.onrender.com.`. Render learns the domain from the `domains:` list in `render.yaml` and issues and renews the TLS certificate itself. The domain and the NIC.UA name-server service are separate orders, each renewed automatically. The GitHub repository variable `PUBLIC_BASE_URL` holds this address, so the deploy job checks releases through it.
+
 ### Releasing
 
 Merge to `main`. That is the whole procedure — no commands, no dashboard.
@@ -164,7 +168,7 @@ If a release is bad, get the public address healthy first, then fix `main`:
    ```bash
    export RENDER_DEPLOY_HOOK_URL='<the service deploy hook URL>'
    ./scripts/render_deploy.sh <previous-good-sha>
-   ./scripts/wait_for_release.sh https://student-competitions.onrender.com <previous-good-sha>
+   ./scripts/wait_for_release.sh https://brainring.org.ua <previous-good-sha>
    ```
 
 Then **revert the bad commit on `main`** and let the pipeline publish the revert, so the repository and the public address agree again. Until that happens, the next merge re-publishes the broken version.

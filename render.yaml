@@ -20,6 +20,12 @@ services:
     # failures restarts the instance (FR-006, FR-023).
     healthCheckPath: /healthz
     region: frankfurt
+    # Custom domain, bought on NIC.UA; its DNS records (A @ → 216.24.57.1, CNAME www → the
+    # onrender.com hostname) are managed there, not here.
+    # Render adds www.brainring.org.ua automatically and redirects it to the root domain. The
+    # onrender.com address keeps working until `renderSubdomainPolicy: disabled` is set.
+    domains:
+      - brainring.org.ua
     # Quoted deliberately: YAML 1.1 parses a bare `off` as the boolean false. The pipeline
     # (.github/workflows/deploy.yml) is the only thing that deploys this service (FR-020, FR-021).
     autoDeployTrigger: "off"
